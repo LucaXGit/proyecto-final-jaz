@@ -1,0 +1,4 @@
+com\tienda\dao\ProductoDAO.class
+com\tienda\model\Producto.class
+com\tienda\controller\ProductoServlet.class
+com\tienda\dao\Conexion.class
