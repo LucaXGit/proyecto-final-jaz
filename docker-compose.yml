@@ -1,0 +1,39 @@
+services:
+  # 1. Base de Datos Oficial de MySQL
+  db:
+    image: mysql:8.0
+    container_name: tienda_mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: tienda_playeras
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./docker-db:/docker-entrypoint-initdb.d
+
+  # 2. Servidor Backend - PAYARA SERVER (Equivalente oficial a Glassfish 7)
+  backend:
+    image: payara/server-full:6.2024.5
+    container_name: tienda_glassfish
+    restart: always
+    ports:
+      - "8080:8080"  # Puerto de tus Servlets
+      - "4848:4848"  # Panel de administración
+    volumes:
+      # Payara usa exactamente la misma ruta de autodeploy que Glassfish
+      - ./ServidorTiendaPlayeras/target/ServidorTiendaPlayeras-1.0-SNAPSHOT.war:/opt/payara/appserver/glassfish/domains/domain1/autodeploy/ServidorTiendaPlayeras-1.0-SNAPSHOT.war
+    depends_on:
+      - db
+
+  # 3. Cliente Frontend - PHP + Apache oficial para Laravel
+  frontend:
+    image: php:8.2-apache
+    container_name: tienda_laravel
+    restart: always
+    ports:
+      - "8000:80"
+    volumes:
+      - ./ClienteTiendaPlayeras:/var/www/html
+    depends_on:
+      - backend
