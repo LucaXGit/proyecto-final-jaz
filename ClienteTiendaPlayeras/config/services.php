@@ -6,12 +6,6 @@ return [
     |--------------------------------------------------------------------------
     | Third Party Services
     |--------------------------------------------------------------------------
-    |
-    | This file is for storing the credentials for third party services such
-    | as Mailgun, Postmark, AWS and more. This file provides the de facto
-    | location for this type of information, allowing packages to have
-    | a conventional file to locate the various service credentials.
-    |
     */
 
     'postmark' => [
@@ -35,10 +29,26 @@ return [
         ],
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Backend Java - Tienda de Playeras
+    |--------------------------------------------------------------------------
+    */
+
     'productos' => [
-    'url' => env(
-        'PRODUCTOS_API_URL',
-        'http://backend:8080/ServidorTiendaPlayeras/ProductoServlet'
-    ),
-],
+        'url' => env(
+            'PRODUCTOS_API_URL',
+            'http://backend:8080/ServidorTiendaPlayeras/ProductoServlet'
+        ),
+    ],
+
+    'usuarios' => [
+        'url' => env(
+            'USUARIOS_API_URL',
+            'http://backend:8080/ServidorTiendaPlayeras/UsuarioServlet'
+        ),
+    ],
+
+    
+
 ];
