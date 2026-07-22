@@ -214,6 +214,15 @@
             font-size: 0.88rem;
         }
 
+        .success-message {
+            margin-bottom: 20px;
+            padding: 12px 14px;
+            border: 1px solid #a6d9b3;
+            background: #effbf2;
+            color: #176b2c;
+            font-size: 0.88rem;
+        }
+
         @media (max-width: 900px) {
             .registration-layout {
                 grid-template-columns: 1fr;
@@ -266,10 +275,22 @@
 
                 <form
                     method="POST"
-                    action="#"
+                    action="{{ route('registro.store') }}"
                     novalidate
                 >
                     @csrf
+                    @if ($errors->has('general'))
+                        <div class="general-message">
+                            
+                            {{ $errors->first('general') }}
+                        </div>
+                    @endif
+
+                    @if (session('success'))
+                        <div class="success-message">
+                            {{ session('success') }}
+                        </div>
+                    @endif
 
                     <div class="form-group">
                         <label

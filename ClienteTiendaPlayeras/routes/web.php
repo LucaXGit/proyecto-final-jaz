@@ -7,6 +7,9 @@ use Illuminate\Support\Facades\Route;
 Route::get('/registro', [AuthController::class, 'mostrarRegistro'])
     ->name('registro');
 
+Route::post('/registro', [AuthController::class, 'registrar'])
+    ->name('registro.store');
+
 Route::get('/', [PlayerasController::class, 'index'])
     ->name('tienda.index');
 
