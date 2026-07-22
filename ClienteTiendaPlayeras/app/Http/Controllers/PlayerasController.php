@@ -7,8 +7,15 @@ use Illuminate\Support\Facades\Http;
 
 class PlayerasController extends Controller
 {
-    private $apiUrl = 'http://localhost:8080/ServidorTiendaPlayeras/ProductoServlet';
+private string $apiUrl;
 
+public function __construct()
+{
+    $this->apiUrl = rtrim(
+        (string) config('services.productos.url'),
+        '/'
+    );
+}
     // READ: Listar productos en la tabla/tarjetas
     public function index()
     {

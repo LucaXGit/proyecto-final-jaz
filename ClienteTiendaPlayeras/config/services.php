@@ -35,4 +35,10 @@ return [
         ],
     ],
 
+    'productos' => [
+    'url' => env(
+        'PRODUCTOS_API_URL',
+        'http://backend:8080/ServidorTiendaPlayeras/ProductoServlet'
+    ),
+],
 ];

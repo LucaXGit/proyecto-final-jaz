@@ -1,39 +1,77 @@
 services:
-  # 1. Base de Datos Oficial de MySQL
   db:
     image: mysql:8.0
     container_name: tienda_mysql
-    restart: always
+    restart: unless-stopped
+
     environment:
-      MYSQL_ROOT_PASSWORD: root
+      MYSQL_ROOT_PASSWORD: root_password
       MYSQL_DATABASE: tienda_playeras
-    ports:
-      - "3306:3306"
-    volumes:
-      - ./docker-db:/docker-entrypoint-initdb.d
+      MYSQL_USER: tienda_user
+      MYSQL_PASSWORD: tienda_password
 
-  # 2. Servidor Backend - PAYARA SERVER (Equivalente oficial a Glassfish 7)
+    ports:
+      - "3307:3306"
+
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./docker-db:/docker-entrypoint-initdb.d:ro
+
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - mysqladmin ping -h localhost -uroot -p$$MYSQL_ROOT_PASSWORD --silent
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+
   backend:
-    image: payara/server-full:6.2024.5
-    container_name: tienda_glassfish
-    restart: always
-    ports:
-      - "8080:8080"  # Puerto de tus Servlets
-      - "4848:4848"  # Panel de administración
-    volumes:
-      # Payara usa exactamente la misma ruta de autodeploy que Glassfish
-      - ./ServidorTiendaPlayeras/target/ServidorTiendaPlayeras-1.0-SNAPSHOT.war:/opt/payara/appserver/glassfish/domains/domain1/autodeploy/ServidorTiendaPlayeras-1.0-SNAPSHOT.war
-    depends_on:
-      - db
+    build:
+      context: ./ServidorTiendaPlayeras
+      dockerfile: Dockerfile
 
-  # 3. Cliente Frontend - PHP + Apache oficial para Laravel
+    container_name: tienda_backend
+    restart: unless-stopped
+
+    environment:
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_NAME: tienda_playeras
+      DB_USER: tienda_user
+      DB_PASSWORD: tienda_password
+
+    ports:
+      - "8080:8080"
+      - "4848:4848"
+
+    depends_on:
+      db:
+        condition: service_healthy
+
   frontend:
-    image: php:8.2-apache
-    container_name: tienda_laravel
-    restart: always
+    build:
+      context: ./ClienteTiendaPlayeras
+      dockerfile: Dockerfile
+
+    container_name: tienda_frontend
+    restart: unless-stopped
+
+    environment:
+      APP_ENV: local
+      APP_DEBUG: "true"
+      APP_URL: http://localhost:8000
+      PRODUCTOS_API_URL: http://backend:8080/ServidorTiendaPlayeras/ProductoServlet
+      SESSION_DRIVER: file
+      CACHE_STORE: file
+      QUEUE_CONNECTION: sync
+
     ports:
       - "8000:80"
-    volumes:
-      - ./ClienteTiendaPlayeras:/var/www/html
+
     depends_on:
-      - backend
+      backend:
+        condition: service_started
+
+volumes:
+  mysql_data:
