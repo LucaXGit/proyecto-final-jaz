@@ -98,15 +98,14 @@ class AuthController extends Controller
         $respuesta = $response->json();
 
         if ($response->successful()) {
-            return redirect()
-                ->route('registro')
-                ->with(
-                    'success',
-                    $respuesta['message']
-                        ?? 'Usuario registrado correctamente.'
-                );
-        }
-
+    return redirect()
+        ->route('tienda.index')
+        ->with(
+            'success',
+            $respuesta['message']
+                ?? 'Usuario registrado correctamente.'
+        );
+}
         if ($response->status() === 409) {
             return back()
                 ->withInput($request->except([
