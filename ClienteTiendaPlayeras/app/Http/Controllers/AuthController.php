@@ -98,14 +98,15 @@ class AuthController extends Controller
         $respuesta = $response->json();
 
         if ($response->successful()) {
-    return redirect()
-        ->route('tienda.index')
-        ->with(
-            'success',
-            $respuesta['message']
-                ?? 'Usuario registrado correctamente.'
-        );
-}
+            return redirect()
+                ->route('tienda.index')
+                ->with(
+                    'success',
+                    $respuesta['message']
+                        ?? 'Usuario registrado correctamente.'
+                );
+        }
+
         if ($response->status() === 409) {
             return back()
                 ->withInput($request->except([
@@ -140,5 +141,156 @@ class AuthController extends Controller
                 'general' => $respuesta['message']
                     ?? 'No fue posible registrar al usuario.',
             ]);
+    }
+
+    public function mostrarLogin(): View
+    {
+        return view('auth.login');
+    }
+
+    public function login(Request $request): RedirectResponse
+    {
+        $datosValidados = $request->validate([
+            'correo' => [
+                'required',
+                'email',
+                'max:150',
+            ],
+            'password' => [
+                'required',
+                'string',
+                'max:72',
+            ],
+            'recordarme' => [
+                'nullable',
+                'boolean',
+            ],
+        ], [
+            'correo.required' => 'El correo electrónico es obligatorio.',
+            'correo.email' => 'El formato del correo electrónico no es válido.',
+            'correo.max' => 'El correo electrónico no puede superar los 150 caracteres.',
+
+            'password.required' => 'La contraseña es obligatoria.',
+            'password.max' => 'La contraseña no puede superar los 72 caracteres.',
+
+            'recordarme.boolean' => 'El valor de recordarme no es válido.',
+        ]);
+
+        try {
+            $response = Http::acceptJson()
+                ->asJson()
+                ->timeout(10)
+                ->post($this->usuariosApiUrl . '/login', [
+                    'correo' => strtolower(
+                        trim($datosValidados['correo'])
+                    ),
+                    'password' => $datosValidados['password'],
+                ]);
+        } catch (ConnectionException $exception) {
+            report($exception);
+
+            return back()
+                ->withInput($request->except('password'))
+                ->withErrors([
+                    'general' => 'No fue posible conectar con el servicio de autenticación.',
+                ]);
+        }
+
+        $respuesta = $response->json();
+
+        if ($response->successful()) {
+            $usuario = $respuesta['usuario'] ?? null;
+
+            if (!$this->usuarioRespuestaValido($usuario)) {
+                return back()
+                    ->withInput($request->except('password'))
+                    ->withErrors([
+                        'general' => 'El servidor devolvió una respuesta de autenticación inválida.',
+                    ]);
+            }
+
+            $request->session()->regenerate();
+
+            $request->session()->put('usuario', [
+                'id' => $usuario['id'],
+                'nombre' => $usuario['nombre'],
+                'apellido' => $usuario['apellido'],
+                'correo' => $usuario['correo'],
+            ]);
+
+            $request->session()->put(
+                'recordarme',
+                $request->boolean('recordarme')
+            );
+
+            return redirect()
+                ->route('tienda.index')
+                ->with(
+                    'success',
+                    $respuesta['message']
+                        ?? 'Inicio de sesión exitoso.'
+                );
+        }
+
+        if ($response->status() === 401) {
+            return back()
+                ->withInput($request->except('password'))
+                ->withErrors([
+                    'correo' => $respuesta['message']
+                        ?? 'El correo electrónico o la contraseña son incorrectos.',
+                ]);
+        }
+
+        if ($response->status() === 400) {
+            $erroresBackend = $respuesta['errors'] ?? [];
+
+            if (is_array($erroresBackend) && !empty($erroresBackend)) {
+                return back()
+                    ->withInput($request->except('password'))
+                    ->withErrors($erroresBackend);
+            }
+        }
+
+        return back()
+            ->withInput($request->except('password'))
+            ->withErrors([
+                'general' => $respuesta['message']
+                    ?? 'No fue posible iniciar sesión.',
+            ]);
+    }
+
+    public function logout(Request $request): RedirectResponse
+    {
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        return redirect()
+            ->route('login')
+            ->with('success', 'Sesión cerrada correctamente.');
+    }
+
+    private function usuarioRespuestaValido(mixed $usuario): bool
+    {
+        if (!is_array($usuario)) {
+            return false;
+        }
+
+        $camposRequeridos = [
+            'id',
+            'nombre',
+            'apellido',
+            'correo',
+        ];
+
+        foreach ($camposRequeridos as $campo) {
+            if (!array_key_exists($campo, $usuario)) {
+                return false;
+            }
+        }
+
+        return is_numeric($usuario['id'])
+            && is_string($usuario['nombre'])
+            && is_string($usuario['apellido'])
+            && is_string($usuario['correo']);
     }
 }

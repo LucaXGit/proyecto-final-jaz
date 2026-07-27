@@ -10,6 +10,15 @@ Route::get('/registro', [AuthController::class, 'mostrarRegistro'])
 Route::post('/registro', [AuthController::class, 'registrar'])
     ->name('registro.store');
 
+Route::get('/login', [AuthController::class, 'mostrarLogin'])
+    ->name('login');
+
+Route::post('/login', [AuthController::class, 'login'])
+    ->name('login.store');
+
+Route::post('/logout', [AuthController::class, 'logout'])
+    ->name('logout');
+
 Route::get('/', [PlayerasController::class, 'index'])
     ->name('tienda.index');
 

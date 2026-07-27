@@ -8,7 +8,7 @@
         content="width=device-width, initial-scale=1.0"
     >
 
-    <title>Crear cuenta | Metro Drop</title>
+    <title>Iniciar sesión | Metro Drop</title>
 
     <style>
         :root {
@@ -35,13 +35,40 @@
             font-family: Arial, Helvetica, sans-serif;
         }
 
-        .registration-layout {
+        .login-layout {
             display: grid;
             grid-template-columns: 1fr 1fr;
             min-height: 100vh;
         }
 
-        .registration-panel {
+        .image-panel {
+            position: relative;
+            min-height: 100vh;
+            overflow: hidden;
+            background:
+                linear-gradient(
+                    to bottom,
+                    rgba(255, 255, 255, 0.02),
+                    rgba(255, 255, 255, 0.18)
+                ),
+                url('{{ asset('images/playera-registro-log.jpg') }}')
+                center center / cover no-repeat,
+                #d4d4d4;
+        }
+
+        .brand {
+            position: absolute;
+            left: 48px;
+            bottom: 42px;
+            color: #111111;
+            font-size: clamp(3rem, 7vw, 6rem);
+            font-weight: 950;
+            line-height: 0.85;
+            letter-spacing: -5px;
+            text-transform: uppercase;
+        }
+
+        .login-panel {
             display: flex;
             align-items: center;
             justify-content: center;
@@ -49,12 +76,12 @@
             background: #ffffff;
         }
 
-        .registration-container {
+        .login-container {
             width: 100%;
             max-width: 455px;
         }
 
-        .registration-title {
+        .login-title {
             margin-bottom: 6px;
             font-size: clamp(2rem, 4vw, 3rem);
             font-weight: 900;
@@ -63,7 +90,7 @@
             text-transform: uppercase;
         }
 
-        .registration-subtitle {
+        .login-subtitle {
             margin-bottom: 32px;
             color: var(--color-muted);
             font-size: 0.95rem;
@@ -118,10 +145,44 @@
             font-size: 0.8rem;
         }
 
+        .login-options {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            margin: 4px 0 22px;
+        }
+
+        .remember-option {
+            display: inline-flex;
+            align-items: center;
+            gap: 9px;
+            color: var(--color-muted);
+            cursor: pointer;
+            font-size: 0.86rem;
+        }
+
+        .remember-option input {
+            width: 17px;
+            height: 17px;
+            accent-color: var(--color-primary);
+            cursor: pointer;
+        }
+
+        .forgot-link {
+            color: var(--color-accent);
+            font-size: 0.82rem;
+            font-weight: 700;
+            text-decoration: none;
+        }
+
+        .forgot-link:hover {
+            text-decoration: underline;
+        }
+
         .submit-button {
             width: 100%;
             min-height: 52px;
-            margin-top: 8px;
             border: 0;
             background: var(--color-primary);
             color: #ffffff;
@@ -156,17 +217,17 @@
             background: var(--color-border);
         }
 
-        .login-section {
+        .register-section {
             text-align: center;
         }
 
-        .login-question {
+        .register-question {
             margin-bottom: 12px;
             color: var(--color-muted);
             font-size: 0.9rem;
         }
 
-        .login-link {
+        .register-link {
             display: inline-block;
             padding-bottom: 4px;
             border-bottom: 2px solid var(--color-accent);
@@ -175,33 +236,6 @@
             font-weight: 800;
             letter-spacing: 1px;
             text-decoration: none;
-            text-transform: uppercase;
-        }
-
-        .image-panel {
-            position: relative;
-            min-height: 100vh;
-            overflow: hidden;
-            background:
-                linear-gradient(
-                    to bottom,
-                    rgba(255, 255, 255, 0.02),
-                    rgba(255, 255, 255, 0.18)
-                ),
-                url('{{ asset('images/playera-registro-log.jpg') }}')
-                center center / cover no-repeat,
-                #d4d4d4;
-        }
-
-        .brand {
-            position: absolute;
-            left: 48px;
-            bottom: 42px;
-            color: #111111;
-            font-size: clamp(3rem, 7vw, 6rem);
-            font-weight: 950;
-            line-height: 0.85;
-            letter-spacing: -5px;
             text-transform: uppercase;
         }
 
@@ -224,127 +258,82 @@
         }
 
         @media (max-width: 900px) {
-            .registration-layout {
+            .login-layout {
                 grid-template-columns: 1fr;
-            }
-
-            .registration-panel {
-                min-height: 100vh;
-                padding: 40px 22px;
             }
 
             .image-panel {
                 display: none;
             }
 
-            .registration-container {
+            .login-panel {
+                min-height: 100vh;
+                padding: 40px 22px;
+            }
+
+            .login-container {
                 max-width: 520px;
             }
         }
 
         @media (max-width: 480px) {
-            .registration-panel {
+            .login-panel {
                 align-items: flex-start;
                 padding-top: 48px;
             }
 
-            .registration-title {
+            .login-title {
                 font-size: 2rem;
+            }
+
+            .login-options {
+                align-items: flex-start;
+                flex-direction: column;
+                gap: 12px;
             }
         }
     </style>
 </head>
 
 <body>
-    <main class="registration-layout">
-        <section class="registration-panel">
-            <div class="registration-container">
-                <h1 class="registration-title">
-                    Crear cuenta
+    <main class="login-layout">
+        <section
+            class="image-panel"
+            aria-label="Playera Metro Drop"
+        >
+            <div class="brand">
+                Metro<br>Drop
+            </div>
+        </section>
+
+        <section class="login-panel">
+            <div class="login-container">
+                <h1 class="login-title">
+                    Login
                 </h1>
 
-                <p class="registration-subtitle">
-                    Únete a la comunidad de Metro Drop.
+                <p class="login-subtitle">
+                    Accede a tu cuenta de Metro Drop.
                 </p>
 
-                @if ($errors->any())
+                @if ($errors->has('general'))
                     <div class="general-message">
-                        Revisa los datos ingresados antes de continuar.
+                        {{ $errors->first('general') }}
+                    </div>
+                @endif
+
+                @if (session('success'))
+                    <div class="success-message">
+                        {{ session('success') }}
                     </div>
                 @endif
 
                 <form
                     method="POST"
-                    action="{{ route('registro.store') }}"
+                    action="{{ route('login.store') }}"
                     novalidate
                 >
                     @csrf
-                    @if ($errors->has('general'))
-                        <div class="general-message">
-                            
-                            {{ $errors->first('general') }}
-                        </div>
-                    @endif
-
-                    @if (session('success'))
-                        <div class="success-message">
-                            {{ session('success') }}
-                        </div>
-                    @endif
-
-                    <div class="form-group">
-                        <label
-                            for="nombre"
-                            class="form-label"
-                        >
-                            Nombre
-                        </label>
-
-                        <input
-                            id="nombre"
-                            class="form-control @error('nombre') is-invalid @enderror"
-                            type="text"
-                            name="nombre"
-                            value="{{ old('nombre') }}"
-                            placeholder="Tu nombre"
-                            maxlength="100"
-                            autocomplete="given-name"
-                            required
-                        >
-
-                        @error('nombre')
-                            <span class="field-error">
-                                {{ $message }}
-                            </span>
-                        @enderror
-                    </div>
-
-                    <div class="form-group">
-                        <label
-                            for="apellido"
-                            class="form-label"
-                        >
-                            Apellido
-                        </label>
-
-                        <input
-                            id="apellido"
-                            class="form-control @error('apellido') is-invalid @enderror"
-                            type="text"
-                            name="apellido"
-                            value="{{ old('apellido') }}"
-                            placeholder="Tu apellido"
-                            maxlength="100"
-                            autocomplete="family-name"
-                            required
-                        >
-
-                        @error('apellido')
-                            <span class="field-error">
-                                {{ $message }}
-                            </span>
-                        @enderror
-                    </div>
 
                     <div class="form-group">
                         <label
@@ -364,6 +353,7 @@
                             maxlength="150"
                             autocomplete="email"
                             required
+                            autofocus
                         >
 
                         @error('correo')
@@ -386,10 +376,9 @@
                             class="form-control @error('password') is-invalid @enderror"
                             type="password"
                             name="password"
-                            placeholder="Crea una contraseña"
-                            minlength="8"
+                            placeholder="Ingresa tu contraseña"
                             maxlength="72"
-                            autocomplete="new-password"
+                            autocomplete="current-password"
                             required
                         >
 
@@ -400,32 +389,35 @@
                         @enderror
                     </div>
 
-                    <div class="form-group">
-                        <label
-                            for="password_confirmation"
-                            class="form-label"
-                        >
-                            Confirmar contraseña
+                    <div class="login-options">
+                        <label class="remember-option">
+                            <input
+                                type="checkbox"
+                                name="recordarme"
+                                value="1"
+                                @checked(old('recordarme'))
+                            >
+
+                            <span>
+                                Recordarme
+                            </span>
                         </label>
 
-                        <input
-                            id="password_confirmation"
-                            class="form-control"
-                            type="password"
-                            name="password_confirmation"
-                            placeholder="Repite tu contraseña"
-                            minlength="8"
-                            maxlength="72"
-                            autocomplete="new-password"
-                            required
+                        <a
+                            href="#"
+                            class="forgot-link"
+                            aria-disabled="true"
+                            onclick="return false;"
                         >
+                            ¿Olvidaste tu contraseña?
+                        </a>
                     </div>
 
                     <button
                         type="submit"
                         class="submit-button"
                     >
-                        Registrarse
+                        Log in
                     </button>
                 </form>
 
@@ -433,27 +425,18 @@
                     O
                 </div>
 
-                <div class="login-section">
-                    <p class="login-question">
-                        ¿Ya tienes una cuenta?
+                <div class="register-section">
+                    <p class="register-question">
+                        ¿Todavía no tienes una cuenta?
                     </p>
 
                     <a
-                        href="{{ route('login') }}"
-                        class="login-link"
+                        href="{{ route('registro') }}"
+                        class="register-link"
                     >
-                        Iniciar sesión
+                        Crear una cuenta
                     </a>
                 </div>
-            </div>
-        </section>
-
-        <section
-            class="image-panel"
-            aria-label="Playera Metro Drop"
-        >
-            <div class="brand">
-                Metro<br>Drop
             </div>
         </section>
     </main>
