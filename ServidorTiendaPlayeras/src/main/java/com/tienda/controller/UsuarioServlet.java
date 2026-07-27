@@ -1,25 +1,29 @@
 package com.tienda.controller;
 
+import java.io.IOException;
+import java.sql.SQLException;
+import java.sql.SQLIntegrityConstraintViolationException;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.regex.Pattern;
+
+import org.mindrot.jbcrypt.BCrypt;
+
 import com.google.gson.Gson;
 import com.tienda.dao.UsuarioDAO;
+import com.tienda.dto.UsuarioLoginRequest;
 import com.tienda.dto.UsuarioRegistroRequest;
 import com.tienda.model.Usuario;
+
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import java.io.IOException;
-import java.sql.SQLIntegrityConstraintViolationException;
-import java.sql.SQLException;
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.regex.Pattern;
-import org.mindrot.jbcrypt.BCrypt;
 
 @WebServlet(
     name = "UsuarioServlet",
-    urlPatterns = {"/UsuarioServlet"}
+    urlPatterns = {"/UsuarioServlet/*"}
 )
 public class UsuarioServlet extends HttpServlet {
 
@@ -74,6 +78,30 @@ public class UsuarioServlet extends HttpServlet {
             return;
         }
 
+        String ruta = request.getPathInfo();
+
+        if (ruta == null || "/".equals(ruta)) {
+            registrarUsuario(request, response);
+            return;
+        }
+
+        if ("/login".equals(ruta)) {
+            iniciarSesion(request, response);
+            return;
+        }
+
+        responderError(
+            response,
+            HttpServletResponse.SC_NOT_FOUND,
+            "La operación solicitada no existe."
+        );
+    }
+
+    private void registrarUsuario(
+            HttpServletRequest request,
+            HttpServletResponse response
+    ) throws IOException {
+
         UsuarioRegistroRequest datos;
 
         try {
@@ -99,9 +127,9 @@ public class UsuarioServlet extends HttpServlet {
             return;
         }
 
-        normalizarDatos(datos);
+        normalizarDatosRegistro(datos);
 
-        Map<String, String> errores = validar(datos);
+        Map<String, String> errores = validarRegistro(datos);
 
         if (!errores.isEmpty()) {
             responderValidacion(response, errores);
@@ -167,6 +195,105 @@ public class UsuarioServlet extends HttpServlet {
         }
     }
 
+    private void iniciarSesion(
+            HttpServletRequest request,
+            HttpServletResponse response
+    ) throws IOException {
+
+        UsuarioLoginRequest datos;
+
+        try {
+            datos = gson.fromJson(
+                request.getReader(),
+                UsuarioLoginRequest.class
+            );
+        } catch (Exception exception) {
+            responderError(
+                response,
+                HttpServletResponse.SC_BAD_REQUEST,
+                "El cuerpo de la solicitud contiene un JSON inválido."
+            );
+            return;
+        }
+
+        if (datos == null) {
+            responderError(
+                response,
+                HttpServletResponse.SC_BAD_REQUEST,
+                "No se recibieron credenciales para iniciar sesión."
+            );
+            return;
+        }
+
+        normalizarDatosLogin(datos);
+
+        Map<String, String> errores = validarLogin(datos);
+
+        if (!errores.isEmpty()) {
+            responderValidacion(response, errores);
+            return;
+        }
+
+        try {
+            Usuario usuario = usuarioDAO.buscarPorCorreo(
+                datos.getCorreo()
+            );
+
+            if (usuario == null
+                    || usuario.getPasswordHash() == null
+                    || !BCrypt.checkpw(
+                        datos.getPassword(),
+                        usuario.getPasswordHash()
+                    )) {
+
+                responderError(
+                    response,
+                    HttpServletResponse.SC_UNAUTHORIZED,
+                    "El correo electrónico o la contraseña son incorrectos."
+                );
+                return;
+            }
+
+            responderLoginExitoso(response, usuario);
+
+        } catch (IllegalArgumentException exception) {
+            System.err.println(
+                "Hash BCrypt inválido durante el login: "
+                    + exception.getMessage()
+            );
+
+            responderError(
+                response,
+                HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                "No fue posible iniciar sesión en este momento."
+            );
+
+        } catch (SQLException exception) {
+            System.err.println(
+                "Error al iniciar sesión: "
+                    + exception.getMessage()
+            );
+
+            responderError(
+                response,
+                HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                "No fue posible iniciar sesión en este momento."
+            );
+
+        } catch (Exception exception) {
+            System.err.println(
+                "Error inesperado al iniciar sesión: "
+                    + exception.getMessage()
+            );
+
+            responderError(
+                response,
+                HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                "Ocurrió un error inesperado al iniciar sesión."
+            );
+        }
+    }
+
     private boolean esSolicitudJson(HttpServletRequest request) {
         String contentType = request.getContentType();
 
@@ -174,17 +301,28 @@ public class UsuarioServlet extends HttpServlet {
             && contentType.toLowerCase().contains("application/json");
     }
 
-    private void normalizarDatos(UsuarioRegistroRequest datos) {
+    private void normalizarDatosRegistro(
+            UsuarioRegistroRequest datos
+    ) {
         datos.setNombre(limpiarTexto(datos.getNombre()));
         datos.setApellido(limpiarTexto(datos.getApellido()));
+        datos.setCorreo(normalizarCorreo(datos.getCorreo()));
+    }
 
-        String correo = limpiarTexto(datos.getCorreo());
+    private void normalizarDatosLogin(
+            UsuarioLoginRequest datos
+    ) {
+        datos.setCorreo(normalizarCorreo(datos.getCorreo()));
+    }
 
-        if (correo != null) {
-            correo = correo.toLowerCase();
+    private String normalizarCorreo(String correo) {
+        String correoLimpio = limpiarTexto(correo);
+
+        if (correoLimpio == null) {
+            return null;
         }
 
-        datos.setCorreo(correo);
+        return correoLimpio.toLowerCase();
     }
 
     private String limpiarTexto(String valor) {
@@ -195,7 +333,7 @@ public class UsuarioServlet extends HttpServlet {
         return valor.trim();
     }
 
-    private Map<String, String> validar(
+    private Map<String, String> validarRegistro(
             UsuarioRegistroRequest datos
     ) {
         Map<String, String> errores = new LinkedHashMap<>();
@@ -203,7 +341,18 @@ public class UsuarioServlet extends HttpServlet {
         validarNombre(datos.getNombre(), errores);
         validarApellido(datos.getApellido(), errores);
         validarCorreo(datos.getCorreo(), errores);
-        validarPassword(datos.getPassword(), errores);
+        validarPasswordRegistro(datos.getPassword(), errores);
+
+        return errores;
+    }
+
+    private Map<String, String> validarLogin(
+            UsuarioLoginRequest datos
+    ) {
+        Map<String, String> errores = new LinkedHashMap<>();
+
+        validarCorreo(datos.getCorreo(), errores);
+        validarPasswordLogin(datos.getPassword(), errores);
 
         return errores;
     }
@@ -292,7 +441,7 @@ public class UsuarioServlet extends HttpServlet {
         }
     }
 
-    private void validarPassword(
+    private void validarPasswordRegistro(
             String password,
             Map<String, String> errores
     ) {
@@ -343,16 +492,33 @@ public class UsuarioServlet extends HttpServlet {
         }
     }
 
+    private void validarPasswordLogin(
+            String password,
+            Map<String, String> errores
+    ) {
+        if (password == null || password.isBlank()) {
+            errores.put(
+                "password",
+                "La contraseña es obligatoria."
+            );
+            return;
+        }
+
+        if (password.length() > 72) {
+            errores.put(
+                "password",
+                "La contraseña no puede superar los 72 caracteres."
+            );
+        }
+    }
+
     private void responderRegistroExitoso(
             HttpServletResponse response,
             Usuario usuario
     ) throws IOException {
 
-        Map<String, Object> usuarioRespuesta = new LinkedHashMap<>();
-        usuarioRespuesta.put("id", usuario.getId());
-        usuarioRespuesta.put("nombre", usuario.getNombre());
-        usuarioRespuesta.put("apellido", usuario.getApellido());
-        usuarioRespuesta.put("correo", usuario.getCorreo());
+        Map<String, Object> usuarioRespuesta =
+            construirUsuarioRespuesta(usuario);
 
         Map<String, Object> cuerpo = new LinkedHashMap<>();
         cuerpo.put("success", true);
@@ -367,6 +533,41 @@ public class UsuarioServlet extends HttpServlet {
             HttpServletResponse.SC_CREATED,
             cuerpo
         );
+    }
+
+    private void responderLoginExitoso(
+            HttpServletResponse response,
+            Usuario usuario
+    ) throws IOException {
+
+        Map<String, Object> usuarioRespuesta =
+            construirUsuarioRespuesta(usuario);
+
+        Map<String, Object> cuerpo = new LinkedHashMap<>();
+        cuerpo.put("success", true);
+        cuerpo.put(
+            "message",
+            "Inicio de sesión exitoso."
+        );
+        cuerpo.put("usuario", usuarioRespuesta);
+
+        escribirJson(
+            response,
+            HttpServletResponse.SC_OK,
+            cuerpo
+        );
+    }
+
+    private Map<String, Object> construirUsuarioRespuesta(
+            Usuario usuario
+    ) {
+        Map<String, Object> usuarioRespuesta = new LinkedHashMap<>();
+        usuarioRespuesta.put("id", usuario.getId());
+        usuarioRespuesta.put("nombre", usuario.getNombre());
+        usuarioRespuesta.put("apellido", usuario.getApellido());
+        usuarioRespuesta.put("correo", usuario.getCorreo());
+
+        return usuarioRespuesta;
     }
 
     private void responderValidacion(

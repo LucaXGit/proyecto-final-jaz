@@ -1,11 +1,12 @@
 package com.tienda.dao;
 
-import com.tienda.model.Usuario;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+
+import com.tienda.model.Usuario;
 
 public class UsuarioDAO {
 
@@ -31,6 +32,52 @@ public class UsuarioDAO {
 
             try (ResultSet resultado = statement.executeQuery()) {
                 return resultado.next();
+            }
+        }
+    }
+
+    /**
+     * Busca un usuario mediante su correo electrónico.
+     *
+     * El passwordHash se recupera únicamente para validar la contraseña
+     * dentro del backend mediante BCrypt. Este dato nunca debe incluirse
+     * en una respuesta JSON.
+     *
+     * @param correo correo electrónico normalizado
+     * @return usuario encontrado o null si el correo no existe
+     * @throws SQLException si ocurre un error al consultar MySQL
+     */
+    public Usuario buscarPorCorreo(String correo) throws SQLException {
+        String sql = """
+            SELECT
+                id,
+                nombre,
+                apellido,
+                correo,
+                password_hash
+            FROM usuarios
+            WHERE LOWER(correo) = LOWER(?)
+            LIMIT 1
+            """;
+
+        try (Connection conexion = obtenerConexion();
+             PreparedStatement statement = conexion.prepareStatement(sql)) {
+
+            statement.setString(1, correo);
+
+            try (ResultSet resultado = statement.executeQuery()) {
+                if (!resultado.next()) {
+                    return null;
+                }
+
+                Usuario usuario = new Usuario();
+                usuario.setId(resultado.getLong("id"));
+                usuario.setNombre(resultado.getString("nombre"));
+                usuario.setApellido(resultado.getString("apellido"));
+                usuario.setCorreo(resultado.getString("correo"));
+                usuario.setPasswordHash(resultado.getString("password_hash"));
+
+                return usuario;
             }
         }
     }
@@ -88,6 +135,9 @@ public class UsuarioDAO {
 
     /**
      * Obtiene una conexión válida o lanza una excepción controlada.
+     *
+     * @return conexión activa con MySQL
+     * @throws SQLException si no es posible establecer la conexión
      */
     private Connection obtenerConexion() throws SQLException {
         Connection conexion = Conexion.getConexion();
