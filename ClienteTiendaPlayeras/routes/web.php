@@ -16,20 +16,22 @@ Route::get('/login', [AuthController::class, 'mostrarLogin'])
 Route::post('/login', [AuthController::class, 'login'])
     ->name('login.store');
 
-Route::post('/logout', [AuthController::class, 'logout'])
-    ->name('logout');
-
 Route::get('/', [PlayerasController::class, 'index'])
     ->name('tienda.index');
 
-Route::post('/store', [PlayerasController::class, 'store'])
-    ->name('playeras.store');
+Route::middleware('usuario.auth')->group(function (): void {
+    Route::post('/logout', [AuthController::class, 'logout'])
+        ->name('logout');
 
-Route::put('/update/{id}', [PlayerasController::class, 'update'])
-    ->name('playeras.update');
+    Route::post('/store', [PlayerasController::class, 'store'])
+        ->name('playeras.store');
 
-Route::delete('/destroy/{id}', [PlayerasController::class, 'destroy'])
-    ->name('playeras.destroy');
+    Route::put('/update/{id}', [PlayerasController::class, 'update'])
+        ->name('playeras.update');
 
-Route::post('/vender/{id}', [PlayerasController::class, 'vender'])
-    ->name('playeras.vender');
+    Route::delete('/destroy/{id}', [PlayerasController::class, 'destroy'])
+        ->name('playeras.destroy');
+
+    Route::post('/vender/{id}', [PlayerasController::class, 'vender'])
+        ->name('playeras.vender');
+});
