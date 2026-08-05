@@ -65,17 +65,21 @@ public class ProductoServlet extends HttpServlet {
                 String talla = request.getParameter("talla");
                 double precio = Double.parseDouble(request.getParameter("precio"));
                 int stock = Integer.parseInt(request.getParameter("stock"));
+                String imagenUrl = request.getParameter("imagenUrl");
+                boolean activo = Boolean.parseBoolean(request.getParameter("activo"));
 
                 Producto nuevo = new Producto();
                 nuevo.setNombre(nombre);
                 nuevo.setTalla(talla);
                 nuevo.setPrecio(precio);
                 nuevo.setStock(stock);
+                nuevo.setImagenUrl(imagenUrl);
+                nuevo.setActivo(activo);
 
                 exito = dao.insertar(nuevo); 
 
             } else if ("vender".equals(accion)) {
-                int id = Integer.parseInt(request.getParameter("id"));
+                String id = request.getParameter("id");
                 int cantidad = 1; 
                 if (request.getParameter("cantidad") != null) {
                     cantidad = Integer.parseInt(request.getParameter("cantidad"));
@@ -100,11 +104,13 @@ public class ProductoServlet extends HttpServlet {
         boolean exito = false;
         
         try {
-            int id = Integer.parseInt(request.getParameter("id"));
+            String id = request.getParameter("id");
             String nombre = request.getParameter("nombre");
             String talla = request.getParameter("talla");
             double precio = Double.parseDouble(request.getParameter("precio"));
             int stock = Integer.parseInt(request.getParameter("stock"));
+            String imagenUrl = request.getParameter("imagenUrl");
+            boolean activo = Boolean.parseBoolean(request.getParameter("activo"));
 
             Producto editado = new Producto();
             editado.setId(id);
@@ -112,6 +118,8 @@ public class ProductoServlet extends HttpServlet {
             editado.setTalla(talla);
             editado.setPrecio(precio);
             editado.setStock(stock);
+            editado.setImagenUrl(imagenUrl);
+            editado.setActivo(activo);
 
             exito = dao.actualizar(editado);
         } catch (Exception e) {
@@ -131,7 +139,7 @@ public class ProductoServlet extends HttpServlet {
         boolean exito = false;
         
         try {
-            int id = Integer.parseInt(request.getParameter("id"));
+            String id = request.getParameter("id");
             exito = dao.eliminar(id);
         } catch (Exception e) {
             System.out.println("Error en doDelete Servlet: " + e.getMessage());

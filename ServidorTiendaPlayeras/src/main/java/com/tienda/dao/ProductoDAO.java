@@ -1,118 +1,133 @@
 package com.tienda.dao;
 
+import com.mongodb.client.MongoCollection;
+import com.mongodb.client.MongoCursor;
+import com.mongodb.client.model.Filters;
+import com.mongodb.client.model.Updates;
 import com.tienda.model.Producto;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
+import org.bson.Document;
+import org.bson.types.ObjectId;
+
 import java.util.ArrayList;
 import java.util.List;
 
 public class ProductoDAO {
 
-    // 1. READ (CONSULTA): Consultar todos los productos
+    private MongoCollection<Document> getCollection() {
+        return ConexionMongo.getDatabase().getCollection("productos");
+    }
+
     public List<Producto> listar() {
         List<Producto> lista = new ArrayList<>();
-        String sql = "SELECT * FROM productos";
-        
-        try (Connection con = Conexion.getConexion();
-             PreparedStatement ps = con.prepareStatement(sql);
-             ResultSet rs = ps.executeQuery()) {
-            
-            while (rs.next()) {
-                Producto p = new Producto();
-                p.setId(rs.getInt("id"));
-                p.setNombre(rs.getString("nombre"));
-                p.setTalla(rs.getString("talla"));
-                p.setPrecio(rs.getDouble("precio"));
-                p.setStock(rs.getInt("stock"));
-                lista.add(p);
+        try (MongoCursor<Document> cursor = getCollection().find().iterator()) {
+            while (cursor.hasNext()) {
+                Document doc = cursor.next();
+                lista.add(mapToProducto(doc));
             }
-        } catch (SQLException e) {
-            System.out.println("Error al listar: " + e.getMessage());
+        } catch (Exception e) {
+            System.err.println("Error al listar productos: " + e.getMessage());
         }
         return lista;
     }
 
-    // 2. CREATE (INSERTAR): Agregar una nueva playera
+    public Producto buscarPorId(String id) {
+        try {
+            Document doc = getCollection().find(Filters.eq("_id", new ObjectId(id))).first();
+            if (doc != null) {
+                return mapToProducto(doc);
+            }
+        } catch (Exception e) {
+            System.err.println("Error al buscar producto por ID: " + e.getMessage());
+        }
+        return null;
+    }
+
     public boolean insertar(Producto p) {
-        String sql = "INSERT INTO productos (nombre, talla, precio, stock) VALUES (?, ?, ?, ?)";
-        
-        try (Connection con = Conexion.getConexion();
-             PreparedStatement ps = con.prepareStatement(sql)) {
+        try {
+            Document doc = new Document()
+                    .append("nombre", p.getNombre())
+                    .append("talla", p.getTalla())
+                    .append("precio", p.getPrecio())
+                    .append("stock", p.getStock())
+                    .append("imagenUrl", p.getImagenUrl())
+                    .append("activo", p.isActivo());
             
-            ps.setString(1, p.getNombre());
-            ps.setString(2, p.getTalla());
-            ps.setDouble(3, p.getPrecio());
-            ps.setInt(4, p.getStock());
+            getCollection().insertOne(doc);
             
-            int filasAfectadas = ps.executeUpdate();
-            return filasAfectadas > 0;
-            
-        } catch (SQLException e) {
-            System.out.println("Error al insertar producto: " + e.getMessage());
+            // Si el objeto p necesita tener el id recién insertado:
+            p.setId(doc.getObjectId("_id").toHexString());
+            return true;
+        } catch (Exception e) {
+            System.err.println("Error al insertar producto: " + e.getMessage());
             return false;
         }
     }
 
-    // 3. UPDATE (ACTUALIZAR): Modificar los datos de una playera
     public boolean actualizar(Producto p) {
-        String sql = "UPDATE productos SET nombre = ?, talla = ?, precio = ?, stock = ? WHERE id = ?";
-        
-        try (Connection con = Conexion.getConexion();
-             PreparedStatement ps = con.prepareStatement(sql)) {
+        try {
+            Document update = new Document("$set", new Document()
+                    .append("nombre", p.getNombre())
+                    .append("talla", p.getTalla())
+                    .append("precio", p.getPrecio())
+                    .append("stock", p.getStock())
+                    .append("imagenUrl", p.getImagenUrl())
+                    .append("activo", p.isActivo()));
             
-            ps.setString(1, p.getNombre());
-            ps.setString(2, p.getTalla());
-            ps.setDouble(3, p.getPrecio());
-            ps.setInt(4, p.getStock());
-            ps.setInt(5, p.getId());
-            
-            int filasAfectadas = ps.executeUpdate();
-            return filasAfectadas > 0;
-            
-        } catch (SQLException e) {
-            System.out.println("Error al actualizar producto: " + e.getMessage());
+            long count = getCollection().updateOne(Filters.eq("_id", new ObjectId(p.getId())), update).getModifiedCount();
+            return count > 0;
+        } catch (Exception e) {
+            System.err.println("Error al actualizar producto: " + e.getMessage());
             return false;
         }
     }
 
-    // 4. DELETE (ELIMINAR): Borrar una playera permanentemente
-    public boolean eliminar(int id) {
-        String sql = "DELETE FROM productos WHERE id = ?";
-        
-        try (Connection con = Conexion.getConexion();
-             PreparedStatement ps = con.prepareStatement(sql)) {
-            
-            ps.setInt(1, id);
-            
-            int filasAfectadas = ps.executeUpdate();
-            return filasAfectadas > 0;
-            
-        } catch (SQLException e) {
-            System.out.println("Error al eliminar producto: " + e.getMessage());
+    public boolean eliminar(String id) {
+        try {
+            long count = getCollection().deleteOne(Filters.eq("_id", new ObjectId(id))).getDeletedCount();
+            return count > 0;
+        } catch (Exception e) {
+            System.err.println("Error al eliminar producto: " + e.getMessage());
             return false;
         }
     }
 
-    // Método modificado para restar una cantidad específica al inventario
-    public boolean vender(int id, int cantidad) {
-        // Resta la cantidad solicitada siempre y cuando haya suficiente stock
-        String sql = "UPDATE productos SET stock = stock - ? WHERE id = ? AND stock >= ?";
-        
-        try (Connection con = Conexion.getConexion();
-             PreparedStatement ps = con.prepareStatement(sql)) {
+    public boolean vender(String id, int cantidad) {
+        try {
+            // Actualiza restando el stock SOLO si el stock actual es mayor o igual a la cantidad
+            long count = getCollection().updateOne(
+                    Filters.and(
+                            Filters.eq("_id", new ObjectId(id)),
+                            Filters.gte("stock", cantidad)
+                    ),
+                    Updates.inc("stock", -cantidad)
+            ).getModifiedCount();
             
-            ps.setInt(1, cantidad);
-            ps.setInt(2, id);
-            ps.setInt(3, cantidad);
-            
-            int filasAfectadas = ps.executeUpdate();
-            return filasAfectadas > 0; // Devuelve true si la venta se completó con éxito
-            
-        } catch (SQLException e) {
-            System.out.println("Error al vender: " + e.getMessage());
+            return count > 0;
+        } catch (Exception e) {
+            System.err.println("Error al vender producto: " + e.getMessage());
             return false;
         }
+    }
+
+    // Helper para mapear Document a Producto
+    private Producto mapToProducto(Document doc) {
+        Producto p = new Producto();
+        p.setId(doc.getObjectId("_id").toHexString());
+        p.setNombre(doc.getString("nombre"));
+        p.setTalla(doc.getString("talla"));
+        
+        // Manejar precio (MongoDB guarda double a veces como int o double según el driver)
+        Number precioNum = doc.get("precio", Number.class);
+        p.setPrecio(precioNum != null ? precioNum.doubleValue() : 0.0);
+        
+        Number stockNum = doc.get("stock", Number.class);
+        p.setStock(stockNum != null ? stockNum.intValue() : 0);
+        
+        p.setImagenUrl(doc.getString("imagenUrl"));
+        
+        Boolean activo = doc.getBoolean("activo");
+        p.setActivo(activo != null ? activo : true); // por defecto true
+        
+        return p;
     }
 }

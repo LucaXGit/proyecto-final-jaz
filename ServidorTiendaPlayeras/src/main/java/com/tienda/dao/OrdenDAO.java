@@ -6,63 +6,80 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 
 import com.tienda.model.CarritoItem;
 import com.tienda.model.Orden;
 import com.tienda.model.OrdenDetalle;
+import com.tienda.model.Producto;
 
 public class OrdenDAO {
+
+    private final ProductoDAO productoDAO = new ProductoDAO();
 
     /**
      * Crea una orden a partir de los items del carrito dentro de una transacción.
      *
-     * 1. Verifica stock suficiente para cada item
-     * 2. Inserta el encabezado de la orden
-     * 3. Inserta cada línea de detalle
-     * 4. Descuenta el stock de cada producto
-     * 5. Vacía el carrito del usuario
-     * 6. COMMIT o ROLLBACK
+     * 1. Verifica stock suficiente para cada item en MongoDB
+     * 2. Intenta descontar el stock en MongoDB
+     * 3. Inserta el encabezado de la orden en MySQL
+     * 4. Inserta cada línea de detalle en MySQL
+     * 5. Vacía el carrito del usuario en MySQL
+     * 6. COMMIT en MySQL (y si algo falla en MySQL, rollback manual en Mongo)
      */
     public Orden crearOrden(long usuarioId, List<CarritoItem> items) throws SQLException {
         if (items == null || items.isEmpty()) {
             throw new SQLException("El carrito está vacío.");
         }
 
-        Connection conexion = obtenerConexion();
+        // 1. Verificar stock suficiente para cada item consultando MongoDB
+        for (CarritoItem item : items) {
+            Producto p = productoDAO.buscarPorId(item.getProductoId());
+            if (p == null) {
+                throw new SQLException("El producto con ID " + item.getProductoId() + " ya no existe.");
+            }
+            if (p.getStock() < item.getCantidad()) {
+                throw new SQLException(
+                    "Stock insuficiente para '" + item.getNombreProducto()
+                        + "'. Disponible: " + p.getStock()
+                        + ", Solicitado: " + item.getCantidad()
+                );
+            }
+        }
 
+        // 2. Descontar el stock en MongoDB (llevando registro por si hay rollback)
+        List<CarritoItem> productosDescontados = new ArrayList<>();
+        for (CarritoItem item : items) {
+            boolean exito = productoDAO.vender(item.getProductoId(), item.getCantidad());
+            if (exito) {
+                productosDescontados.add(item);
+            } else {
+                // Si falla el descuento, devolver los anteriores
+                rollbackMongo(productosDescontados);
+                throw new SQLException(
+                    "Fallo al descontar stock del producto '" + item.getNombreProducto() + "' en MongoDB."
+                );
+            }
+        }
+
+        Connection conexion = null;
         try {
+            conexion = obtenerConexion();
             conexion.setAutoCommit(false);
 
-            // 1. Verificar stock suficiente para cada item
-            for (CarritoItem item : items) {
-                int stockActual = obtenerStockProducto(conexion, item.getProductoId());
-
-                if (stockActual < item.getCantidad()) {
-                    throw new SQLException(
-                        "Stock insuficiente para '" + item.getNombreProducto()
-                            + "'. Disponible: " + stockActual
-                            + ", Solicitado: " + item.getCantidad()
-                    );
-                }
-            }
-
-            // 2. Calcular el total
+            // 3. Calcular el total
             double total = 0;
             for (CarritoItem item : items) {
                 total += item.getPrecio() * item.getCantidad();
             }
 
-            // 3. Insertar encabezado de la orden
+            // 4. Insertar encabezado de la orden
             String sqlOrden = """
                 INSERT INTO ordenes (usuario_id, total, estado)
                 VALUES (?, ?, 'Completada')
                 """;
 
             long ordenId;
-
             try (PreparedStatement stOrden = conexion.prepareStatement(
                     sqlOrden, Statement.RETURN_GENERATED_KEYS)) {
 
@@ -78,7 +95,7 @@ public class OrdenDAO {
                 }
             }
 
-            // 4. Insertar cada línea de detalle
+            // 5. Insertar cada línea de detalle
             String sqlDetalle = """
                 INSERT INTO orden_detalle
                     (orden_id, producto_id, nombre_producto, talla, precio_unitario, cantidad, subtotal)
@@ -90,7 +107,7 @@ public class OrdenDAO {
                     double subtotal = item.getPrecio() * item.getCantidad();
 
                     stDetalle.setLong(1, ordenId);
-                    stDetalle.setInt(2, item.getProductoId());
+                    stDetalle.setString(2, item.getProductoId()); // Ahora es String
                     stDetalle.setString(3, item.getNombreProducto());
                     stDetalle.setString(4, item.getTalla());
                     stDetalle.setDouble(5, item.getPrecio());
@@ -101,32 +118,8 @@ public class OrdenDAO {
                 stDetalle.executeBatch();
             }
 
-            // 5. Descontar stock de cada producto
-            String sqlStock = "UPDATE productos SET stock = stock - ? WHERE id = ? AND stock >= ?";
-
-            try (PreparedStatement stStock = conexion.prepareStatement(sqlStock)) {
-                for (CarritoItem item : items) {
-                    stStock.setInt(1, item.getCantidad());
-                    stStock.setInt(2, item.getProductoId());
-                    stStock.setInt(3, item.getCantidad());
-                    stStock.addBatch();
-                }
-
-                int[] resultados = stStock.executeBatch();
-
-                for (int i = 0; i < resultados.length; i++) {
-                    if (resultados[i] == 0) {
-                        throw new SQLException(
-                            "No se pudo descontar el stock del producto '"
-                                + items.get(i).getNombreProducto() + "'."
-                        );
-                    }
-                }
-            }
-
             // 6. Vaciar el carrito del usuario
             String sqlVaciar = "DELETE FROM carrito_items WHERE usuario_id = ?";
-
             try (PreparedStatement stVaciar = conexion.prepareStatement(sqlVaciar)) {
                 stVaciar.setLong(1, usuarioId);
                 stVaciar.executeUpdate();
@@ -155,23 +148,38 @@ public class OrdenDAO {
             }
 
             orden.setDetalles(detalles);
-
             return orden;
 
         } catch (SQLException exception) {
-            try {
-                conexion.rollback();
-            } catch (SQLException rollbackException) {
-                System.err.println("Error en rollback: " + rollbackException.getMessage());
+            // Si algo falló en MySQL, rollback a la BD relacional y también a MongoDB
+            if (conexion != null) {
+                try {
+                    conexion.rollback();
+                } catch (SQLException rollbackException) {
+                    System.err.println("Error en rollback de MySQL: " + rollbackException.getMessage());
+                }
             }
+            rollbackMongo(productosDescontados);
             throw exception;
 
         } finally {
-            try {
-                conexion.setAutoCommit(true);
-                conexion.close();
-            } catch (SQLException closeException) {
-                System.err.println("Error al cerrar conexión: " + closeException.getMessage());
+            if (conexion != null) {
+                try {
+                    conexion.setAutoCommit(true);
+                    conexion.close();
+                } catch (SQLException closeException) {
+                    System.err.println("Error al cerrar conexión: " + closeException.getMessage());
+                }
+            }
+        }
+    }
+
+    private void rollbackMongo(List<CarritoItem> productosDescontados) {
+        for (CarritoItem item : productosDescontados) {
+            // Regresamos la cantidad sumando al stock negativo (vender cantidad negativa)
+            boolean recuperado = productoDAO.vender(item.getProductoId(), -item.getCantidad());
+            if (!recuperado) {
+                System.err.println("CRÍTICO: No se pudo revertir el stock en Mongo para el producto " + item.getProductoId());
             }
         }
     }
@@ -196,7 +204,6 @@ public class OrdenDAO {
             """;
 
         List<Orden> ordenes = new ArrayList<>();
-
         try (Connection conexion = obtenerConexion();
              PreparedStatement statement = conexion.prepareStatement(sql)) {
 
@@ -208,7 +215,6 @@ public class OrdenDAO {
                 }
             }
         }
-
         return ordenes;
     }
 
@@ -231,7 +237,6 @@ public class OrdenDAO {
             """;
 
         List<Orden> ordenes = new ArrayList<>();
-
         try (Connection conexion = obtenerConexion();
              PreparedStatement statement = conexion.prepareStatement(sql);
              ResultSet resultado = statement.executeQuery()) {
@@ -240,7 +245,6 @@ public class OrdenDAO {
                 ordenes.add(mapearOrden(resultado));
             }
         }
-
         return ordenes;
     }
 
@@ -278,7 +282,6 @@ public class OrdenDAO {
             """;
 
         try (Connection conexion = obtenerConexion()) {
-
             Orden orden = null;
 
             try (PreparedStatement stOrden = conexion.prepareStatement(sqlOrden)) {
@@ -305,7 +308,7 @@ public class OrdenDAO {
                         OrdenDetalle detalle = new OrdenDetalle();
                         detalle.setId(resultado.getLong("id"));
                         detalle.setOrdenId(resultado.getLong("orden_id"));
-                        detalle.setProductoId(resultado.getInt("producto_id"));
+                        detalle.setProductoId(resultado.getString("producto_id"));
                         detalle.setNombreProducto(resultado.getString("nombre_producto"));
                         detalle.setTalla(resultado.getString("talla"));
                         detalle.setPrecioUnitario(resultado.getDouble("precio_unitario"));
@@ -319,22 +322,6 @@ public class OrdenDAO {
             orden.setDetalles(detalles);
             return orden;
         }
-    }
-
-    private int obtenerStockProducto(Connection conexion, int productoId) throws SQLException {
-        String sql = "SELECT stock FROM productos WHERE id = ?";
-
-        try (PreparedStatement statement = conexion.prepareStatement(sql)) {
-            statement.setInt(1, productoId);
-
-            try (ResultSet resultado = statement.executeQuery()) {
-                if (resultado.next()) {
-                    return resultado.getInt("stock");
-                }
-            }
-        }
-
-        throw new SQLException("El producto con ID " + productoId + " no existe.");
     }
 
     private Orden mapearOrden(ResultSet resultado) throws SQLException {
@@ -351,13 +338,9 @@ public class OrdenDAO {
 
     private Connection obtenerConexion() throws SQLException {
         Connection conexion = Conexion.getConexion();
-
         if (conexion == null) {
-            throw new SQLException(
-                "No fue posible establecer la conexión con la base de datos."
-            );
+            throw new SQLException("No fue posible establecer la conexión con la base de datos.");
         }
-
         return conexion;
     }
 }

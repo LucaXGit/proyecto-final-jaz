@@ -6,7 +6,7 @@ public class CarritoItem {
 
     private long id;
     private long usuarioId;
-    private int productoId;
+    private String productoId;
     private String nombreProducto;
     private String talla;
     private double precio;
@@ -33,11 +33,11 @@ public class CarritoItem {
         this.usuarioId = usuarioId;
     }
 
-    public int getProductoId() {
+    public String getProductoId() {
         return productoId;
     }
 
-    public void setProductoId(int productoId) {
+    public void setProductoId(String productoId) {
         this.productoId = productoId;
     }
 

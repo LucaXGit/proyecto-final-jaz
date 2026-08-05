@@ -135,7 +135,7 @@ public class CarritoServlet extends HttpServlet {
             return;
         }
 
-        int productoId = ((Number) datos.get("productoId")).intValue();
+        String productoId = String.valueOf(datos.get("productoId"));
         int cantidad = datos.containsKey("cantidad")
             ? ((Number) datos.get("cantidad")).intValue()
             : 1;

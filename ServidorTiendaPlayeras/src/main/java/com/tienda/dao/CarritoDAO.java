@@ -8,28 +8,27 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.tienda.model.CarritoItem;
+import com.tienda.model.Producto;
 
 public class CarritoDAO {
 
+    private ProductoDAO productoDAO = new ProductoDAO();
+
     /**
-     * Lista los items del carrito de un usuario con datos del producto (JOIN).
+     * Lista los items del carrito de un usuario.
+     * Consulta a MySQL y luego complementa con MongoDB.
      */
     public List<CarritoItem> listarPorUsuario(long usuarioId) throws SQLException {
         String sql = """
             SELECT
-                ci.id,
-                ci.usuario_id,
-                ci.producto_id,
-                ci.cantidad,
-                ci.fecha_agregado,
-                p.nombre AS nombre_producto,
-                p.talla,
-                p.precio,
-                p.stock
-            FROM carrito_items ci
-            INNER JOIN productos p ON ci.producto_id = p.id
-            WHERE ci.usuario_id = ?
-            ORDER BY ci.fecha_agregado DESC
+                id,
+                usuario_id,
+                producto_id,
+                cantidad,
+                fecha_agregado
+            FROM carrito_items
+            WHERE usuario_id = ?
+            ORDER BY fecha_agregado DESC
             """;
 
         List<CarritoItem> items = new ArrayList<>();
@@ -44,14 +43,24 @@ public class CarritoDAO {
                     CarritoItem item = new CarritoItem();
                     item.setId(resultado.getLong("id"));
                     item.setUsuarioId(resultado.getLong("usuario_id"));
-                    item.setProductoId(resultado.getInt("producto_id"));
+                    
+                    String productoId = resultado.getString("producto_id");
+                    item.setProductoId(productoId);
                     item.setCantidad(resultado.getInt("cantidad"));
                     item.setFechaAgregado(resultado.getTimestamp("fecha_agregado"));
-                    item.setNombreProducto(resultado.getString("nombre_producto"));
-                    item.setTalla(resultado.getString("talla"));
-                    item.setPrecio(resultado.getDouble("precio"));
-                    item.setStock(resultado.getInt("stock"));
-                    items.add(item);
+                    
+                    // Buscar en MongoDB el producto para completar la información
+                    Producto p = productoDAO.buscarPorId(productoId);
+                    if (p != null) {
+                        item.setNombreProducto(p.getNombre());
+                        item.setTalla(p.getTalla());
+                        item.setPrecio(p.getPrecio());
+                        item.setStock(p.getStock());
+                        items.add(item);
+                    } else {
+                        // Si el producto ya no existe en Mongo, podríamos decidir ignorarlo
+                        // o mostrar un producto "Eliminado"
+                    }
                 }
             }
         }
@@ -63,7 +72,7 @@ public class CarritoDAO {
      * Agrega un producto al carrito. Si ya existe, suma la cantidad.
      * Usa INSERT ... ON DUPLICATE KEY UPDATE.
      */
-    public void agregarItem(long usuarioId, int productoId, int cantidad) throws SQLException {
+    public void agregarItem(long usuarioId, String productoId, int cantidad) throws SQLException {
         String sql = """
             INSERT INTO carrito_items (usuario_id, producto_id, cantidad)
             VALUES (?, ?, ?)
@@ -74,7 +83,7 @@ public class CarritoDAO {
              PreparedStatement statement = conexion.prepareStatement(sql)) {
 
             statement.setLong(1, usuarioId);
-            statement.setInt(2, productoId);
+            statement.setString(2, productoId);
             statement.setInt(3, cantidad);
 
             statement.executeUpdate();

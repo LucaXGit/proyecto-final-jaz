@@ -29,10 +29,12 @@ public function __construct()
     {
         Http::asForm()->post($this->apiUrl, [
             'accion' => 'crear',
-            'nombre' => $request->nombre,
-            'talla'  => $request->talla,
-            'precio' => $request->precio,
-            'stock'  => $request->stock
+            'nombre'    => $request->nombre,
+            'talla'     => $request->talla,
+            'precio'    => $request->precio,
+            'stock'     => $request->stock,
+            'imagenUrl' => $request->imagenUrl,
+            'activo'    => $request->has('activo') ? 'true' : 'false'
         ]);
 
         return redirect('/')->with('success', '¡Playera agregada con éxito!');
@@ -41,8 +43,9 @@ public function __construct()
     // UPDATE: Modificar datos de una playera existente
     public function update(Request $request, $id)
     {
-        // Pasamos los parámetros por la URL para que Tomcat (Java) los lea correctamente en un PUT
-        Http::put($this->apiUrl . "?id={$id}&nombre=" . urlencode($request->nombre) . "&talla={$request->talla}&precio={$request->precio}&stock={$request->stock}");
+        $activo = $request->has('activo') ? 'true' : 'false';
+        $imagenUrl = urlencode($request->imagenUrl ?? '');
+        Http::put($this->apiUrl . "?id={$id}&nombre=" . urlencode($request->nombre) . "&talla={$request->talla}&precio={$request->precio}&stock={$request->stock}&imagenUrl={$imagenUrl}&activo={$activo}");
 
         return redirect('/')->with('success', '¡Playera actualizada correctamente!');
     }
@@ -60,7 +63,7 @@ public function __construct()
     {
         Http::asForm()->post($this->apiUrl, [
             'accion'   => 'vender',
-            'id'       => (int)$id,
+            'id'       => $id,
             'cantidad' => (int)$request->cantidad // Forzamos a que sea un número entero
         ]);
 

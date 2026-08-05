@@ -29,70 +29,37 @@
 
                 <div class="d-flex flex-wrap align-items-center gap-2">
                     @if (session()->has('usuario.id'))
-                        <div class="text-white me-lg-2">
-                            <div class="fw-semibold">
-                                {{ session('usuario.nombre') }}
-                                {{ session('usuario.apellido') }}
-                            </div>
-
-                            <small class="text-white-50">
-                                {{ session('usuario.correo') }} ({{ session('usuario.rol') }})
-                            </small>
-                        </div>
-
-                        <a
-                            href="{{ route('carrito.index') }}"
-                            class="btn btn-outline-light"
-                        >
+                        <a href="{{ route('carrito.index') }}" class="btn btn-light position-relative">
                             🛒 Carrito
                         </a>
-
-                        <a
-                            href="{{ route('ordenes.index') }}"
-                            class="btn btn-outline-light"
-                        >
-                            Mis Órdenes
+                        <a href="{{ route('ordenes.index') }}" class="btn btn-outline-light">
+                            📦 Mis Órdenes
                         </a>
 
-                        <a
-                            href="{{ route('perfil') }}"
-                            class="btn btn-outline-info"
-                        >
-                            Mi Perfil
-                        </a>
-
-                        @if (strtolower(session('usuario.rol')) === 'admin')
-                            <a
-                                href="{{ route('admin.usuarios') }}"
-                                class="btn btn-outline-warning"
-                            >
-                                Panel Admin
-                            </a>
-
-                            <button
-                                class="btn btn-success"
-                                data-bs-toggle="modal"
-                                data-bs-target="#modalCrear"
-                                type="button"
-                            >
-                                Agregar nueva playera
+                        <div class="dropdown">
+                            <button class="btn btn-dark dropdown-toggle" type="button" id="dropdownPerfil" data-bs-toggle="dropdown" aria-expanded="false">
+                                👤 {{ session('usuario.nombre') }}
                             </button>
-                        @endif
-
-                        <form
-                            action="{{ route('logout') }}"
-                            method="POST"
-                            class="m-0"
-                        >
-                            @csrf
-
-                            <button
-                                type="submit"
-                                class="btn btn-outline-light"
-                            >
-                                Cerrar sesión
-                            </button>
-                        </form>
+                            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="dropdownPerfil">
+                                <li><h6 class="dropdown-header">{{ session('usuario.correo') }} ({{ session('usuario.rol') }})</h6></li>
+                                <li><a class="dropdown-item" href="{{ route('perfil') }}">Mi Perfil</a></li>
+                                @if (strtolower(session('usuario.rol')) === 'admin')
+                                <li><a class="dropdown-item" href="{{ route('admin.usuarios') }}">Panel Admin</a></li>
+                                <li>
+                                    <button class="dropdown-item" data-bs-toggle="modal" data-bs-target="#modalCrear" type="button">
+                                        Agregar nueva playera
+                                    </button>
+                                </li>
+                                @endif
+                                <li><hr class="dropdown-divider"></li>
+                                <li>
+                                    <form action="{{ route('logout') }}" method="POST" class="m-0">
+                                        @csrf
+                                        <button type="submit" class="dropdown-item text-danger">Cerrar sesión</button>
+                                    </form>
+                                </li>
+                            </ul>
+                        </div>
                     @else
                         <a
                             href="{{ route('login') }}"
@@ -154,6 +121,7 @@
             @forelse ($playeras as $playera)
                 <div class="col-md-4 mb-4">
                     <div class="card h-100 shadow-sm">
+                        <img src="{{ $playera['imagenUrl'] ?? $playera['imagen_url'] ?? 'https://via.placeholder.com/300x300?text=Sin+Imagen' }}" class="card-img-top" alt="{{ $playera['nombre'] }}" style="object-fit: cover; height: 250px;">
                         <div class="card-body">
                             <h5 class="card-title text-primary">
                                 {{ $playera['nombre'] }}
@@ -385,6 +353,16 @@
                                                 required
                                             >
                                         </div>
+
+                                        <div class="mb-3">
+                                            <label for="imagenUrl-{{ $playera['id'] }}" class="form-label">URL de Imagen</label>
+                                            <input id="imagenUrl-{{ $playera['id'] }}" type="url" name="imagenUrl" class="form-control" value="{{ $playera['imagenUrl'] ?? $playera['imagen_url'] ?? '' }}">
+                                        </div>
+
+                                        <div class="form-check mb-3">
+                                            <input class="form-check-input" type="checkbox" id="activo-{{ $playera['id'] }}" name="activo" value="true" {{ (isset($playera['activo']) ? $playera['activo'] : true) ? 'checked' : '' }}>
+                                            <label class="form-check-label" for="activo-{{ $playera['id'] }}">Producto Activo</label>
+                                        </div>
                                     </div>
 
                                     <div class="modal-footer">
@@ -531,6 +509,16 @@
                                     placeholder="20"
                                     required
                                 >
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="imagenUrl" class="form-label">URL de Imagen</label>
+                                <input id="imagenUrl" type="url" name="imagenUrl" class="form-control" placeholder="https://ejemplo.com/img.png">
+                            </div>
+
+                            <div class="form-check mb-3">
+                                <input class="form-check-input" type="checkbox" id="activo" name="activo" value="true" checked>
+                                <label class="form-check-label" for="activo">Producto Activo</label>
                             </div>
                         </div>
 

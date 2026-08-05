@@ -4,7 +4,7 @@ public class OrdenDetalle {
 
     private long id;
     private long ordenId;
-    private int productoId;
+    private String productoId;
     private String nombreProducto;
     private String talla;
     private double precioUnitario;
@@ -30,11 +30,11 @@ public class OrdenDetalle {
         this.ordenId = ordenId;
     }
 
-    public int getProductoId() {
+    public String getProductoId() {
         return productoId;
     }
 
-    public void setProductoId(int productoId) {
+    public void setProductoId(String productoId) {
         this.productoId = productoId;
     }
 
