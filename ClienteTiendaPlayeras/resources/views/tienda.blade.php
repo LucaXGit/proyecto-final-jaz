@@ -36,18 +36,48 @@
                             </div>
 
                             <small class="text-white-50">
-                                {{ session('usuario.correo') }}
+                                {{ session('usuario.correo') }} ({{ session('usuario.rol') }})
                             </small>
                         </div>
 
-                        <button
-                            class="btn btn-success"
-                            data-bs-toggle="modal"
-                            data-bs-target="#modalCrear"
-                            type="button"
+                        <a
+                            href="{{ route('carrito.index') }}"
+                            class="btn btn-outline-light"
                         >
-                            Agregar nueva playera
-                        </button>
+                            🛒 Carrito
+                        </a>
+
+                        <a
+                            href="{{ route('ordenes.index') }}"
+                            class="btn btn-outline-light"
+                        >
+                            Mis Órdenes
+                        </a>
+
+                        <a
+                            href="{{ route('perfil') }}"
+                            class="btn btn-outline-info"
+                        >
+                            Mi Perfil
+                        </a>
+
+                        @if (strtolower(session('usuario.rol')) === 'admin')
+                            <a
+                                href="{{ route('admin.usuarios') }}"
+                                class="btn btn-outline-warning"
+                            >
+                                Panel Admin
+                            </a>
+
+                            <button
+                                class="btn btn-success"
+                                data-bs-toggle="modal"
+                                data-bs-target="#modalCrear"
+                                type="button"
+                            >
+                                Agregar nueva playera
+                            </button>
+                        @endif
 
                         <form
                             action="{{ route('logout') }}"
@@ -159,11 +189,12 @@
                                 class="card-footer bg-transparent border-top-0 d-flex flex-column gap-2"
                             >
                                 <form
-                                    action="{{ route('playeras.vender', $playera['id']) }}"
+                                    action="{{ route('carrito.agregar') }}"
                                     method="POST"
                                     class="mt-2"
                                 >
                                     @csrf
+                                    <input type="hidden" name="producto_id" value="{{ $playera['id'] }}">
 
                                     <div class="input-group mb-2">
                                         <span class="input-group-text bg-white text-muted">
@@ -184,48 +215,50 @@
 
                                     <button
                                         type="submit"
-                                        class="btn btn-dark w-100"
+                                        class="btn btn-primary w-100"
                                         {{ $playera['stock'] <= 0 ? 'disabled' : '' }}
                                     >
                                         {{ $playera['stock'] <= 0
                                             ? 'Agotado'
-                                            : 'Confirmar venta' }}
+                                            : '🛒 Agregar al Carrito' }}
                                     </button>
                                 </form>
 
-                                <div class="d-flex gap-2">
-                                    <button
-                                        class="btn btn-warning w-50 btn-sm"
-                                        data-bs-toggle="modal"
-                                        data-bs-target="#modalEditar{{ $playera['id'] }}"
-                                        type="button"
-                                    >
-                                        Editar
-                                    </button>
-
-                                    <form
-                                        action="{{ route('playeras.destroy', $playera['id']) }}"
-                                        method="POST"
-                                        class="w-50"
-                                        onsubmit="return confirm('¿Seguro que deseas eliminar esta playera permanentemente?')"
-                                    >
-                                        @csrf
-                                        @method('DELETE')
-
+                                @if (strtolower(session('usuario.rol')) === 'admin')
+                                    <div class="d-flex gap-2">
                                         <button
-                                            type="submit"
-                                            class="btn btn-danger w-100 btn-sm"
+                                            class="btn btn-warning w-50 btn-sm"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#modalEditar{{ $playera['id'] }}"
+                                            type="button"
                                         >
-                                            Borrar
+                                            Editar
                                         </button>
-                                    </form>
-                                </div>
+
+                                        <form
+                                            action="{{ route('playeras.destroy', $playera['id']) }}"
+                                            method="POST"
+                                            class="w-50"
+                                            onsubmit="return confirm('¿Seguro que deseas eliminar esta playera permanentemente?')"
+                                        >
+                                            @csrf
+                                            @method('DELETE')
+
+                                            <button
+                                                type="submit"
+                                                class="btn btn-danger w-100 btn-sm"
+                                            >
+                                                Borrar
+                                            </button>
+                                        </form>
+                                    </div>
+                                @endif
                             </div>
                         @endif
                     </div>
                 </div>
 
-                @if (session()->has('usuario.id'))
+                @if (session()->has('usuario.id') && strtolower(session('usuario.rol')) === 'admin')
                     <div
                         class="modal fade"
                         id="modalEditar{{ $playera['id'] }}"
@@ -385,7 +418,7 @@
         </div>
     </div>
 
-    @if (session()->has('usuario.id'))
+    @if (session()->has('usuario.id') && strtolower(session('usuario.rol')) === 'admin')
         <div
             class="modal fade"
             id="modalCrear"

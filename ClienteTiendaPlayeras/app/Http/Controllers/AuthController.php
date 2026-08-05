@@ -2,10 +2,9 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Client\ConnectionException;
+use App\Services\PayaraClient;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\View\View;
 
@@ -46,13 +45,11 @@ class AuthController extends Controller
                 'email',
                 'max:150',
             ],
-            'password' => [
+           'password' => [
                 'required',
                 'confirmed',
+                'min:4',
                 'max:72',
-                Password::min(8)
-                    ->mixedCase()
-                    ->numbers(),
             ],
         ], [
             'nombre.required' => 'El nombre es obligatorio.',
@@ -72,64 +69,40 @@ class AuthController extends Controller
             'password.max' => 'La contraseña no puede superar los 72 caracteres.',
         ]);
 
-        try {
-            $response = Http::acceptJson()
-                ->asJson()
-                ->timeout(10)
-                ->post($this->usuariosApiUrl, [
-                    'nombre' => trim($datosValidados['nombre']),
-                    'apellido' => trim($datosValidados['apellido']),
-                    'correo' => strtolower(trim($datosValidados['correo'])),
-                    'password' => $datosValidados['password'],
-                ]);
-        } catch (ConnectionException $exception) {
-            report($exception);
+        $respuesta = PayaraClient::request('POST', $this->usuariosApiUrl . '/register', [
+            'nombre' => trim($datosValidados['nombre']),
+            'apellido' => trim($datosValidados['apellido']),
+            'correo' => strtolower(trim($datosValidados['correo'])),
+            'password' => $datosValidados['password'],
+        ]);
 
-            return back()
-                ->withInput($request->except([
-                    'password',
-                    'password_confirmation',
-                ]))
-                ->withErrors([
-                    'general' => 'No fue posible conectar con el servidor de usuarios.',
-                ]);
-        }
-
-        $respuesta = $response->json();
-
-        if ($response->successful()) {
+        if ($respuesta['success']) {
             return redirect()
                 ->route('tienda.index')
                 ->with(
                     'success',
-                    $respuesta['message']
-                        ?? 'Usuario registrado correctamente.'
+                    $respuesta['message'] ?? 'Usuario registrado correctamente.'
                 );
         }
 
-        if ($response->status() === 409) {
+        if ($respuesta['code'] === 409) {
             return back()
                 ->withInput($request->except([
                     'password',
                     'password_confirmation',
                 ]))
                 ->withErrors([
-                    'correo' => $respuesta['message']
-                        ?? 'El correo electrónico ya está registrado.',
+                    'correo' => $respuesta['message'] ?? 'El correo electrónico ya está registrado.',
                 ]);
         }
 
-        if ($response->status() === 400) {
-            $erroresBackend = $respuesta['errors'] ?? [];
-
-            if (is_array($erroresBackend) && !empty($erroresBackend)) {
-                return back()
-                    ->withInput($request->except([
-                        'password',
-                        'password_confirmation',
-                    ]))
-                    ->withErrors($erroresBackend);
-            }
+        if ($respuesta['code'] === 400 && !empty($respuesta['errors'])) {
+            return back()
+                ->withInput($request->except([
+                    'password',
+                    'password_confirmation',
+                ]))
+                ->withErrors($respuesta['errors']);
         }
 
         return back()
@@ -138,8 +111,7 @@ class AuthController extends Controller
                 'password_confirmation',
             ]))
             ->withErrors([
-                'general' => $respuesta['message']
-                    ?? 'No fue posible registrar al usuario.',
+                'general' => $respuesta['message'] ?? 'No fue posible registrar al usuario.',
             ]);
     }
 
@@ -176,29 +148,12 @@ class AuthController extends Controller
             'recordarme.boolean' => 'El valor de recordarme no es válido.',
         ]);
 
-        try {
-            $response = Http::acceptJson()
-                ->asJson()
-                ->timeout(10)
-                ->post($this->usuariosApiUrl . '/login', [
-                    'correo' => strtolower(
-                        trim($datosValidados['correo'])
-                    ),
-                    'password' => $datosValidados['password'],
-                ]);
-        } catch (ConnectionException $exception) {
-            report($exception);
+        $respuesta = PayaraClient::request('POST', $this->usuariosApiUrl . '/login', [
+            'correo' => strtolower(trim($datosValidados['correo'])),
+            'password' => $datosValidados['password'],
+        ]);
 
-            return back()
-                ->withInput($request->except('password'))
-                ->withErrors([
-                    'general' => 'No fue posible conectar con el servicio de autenticación.',
-                ]);
-        }
-
-        $respuesta = $response->json();
-
-        if ($response->successful()) {
+        if ($respuesta['success']) {
             $usuario = $respuesta['usuario'] ?? null;
 
             if (!$this->usuarioRespuestaValido($usuario)) {
@@ -216,6 +171,8 @@ class AuthController extends Controller
                 'nombre' => $usuario['nombre'],
                 'apellido' => $usuario['apellido'],
                 'correo' => $usuario['correo'],
+                'rol' => $usuario['rol'],
+                'token' => $respuesta['token'] ?? null,
             ]);
 
             $request->session()->put(
@@ -227,35 +184,28 @@ class AuthController extends Controller
                 ->route('tienda.index')
                 ->with(
                     'success',
-                    $respuesta['message']
-                        ?? 'Inicio de sesión exitoso.'
+                    $respuesta['message'] ?? 'Inicio de sesión exitoso.'
                 );
         }
 
-        if ($response->status() === 401) {
+        if ($respuesta['code'] === 401) {
             return back()
                 ->withInput($request->except('password'))
                 ->withErrors([
-                    'correo' => $respuesta['message']
-                        ?? 'El correo electrónico o la contraseña son incorrectos.',
+                    'correo' => $respuesta['message'] ?? 'El correo electrónico o la contraseña son incorrectos.',
                 ]);
         }
 
-        if ($response->status() === 400) {
-            $erroresBackend = $respuesta['errors'] ?? [];
-
-            if (is_array($erroresBackend) && !empty($erroresBackend)) {
-                return back()
-                    ->withInput($request->except('password'))
-                    ->withErrors($erroresBackend);
-            }
+        if ($respuesta['code'] === 400 && !empty($respuesta['errors'])) {
+            return back()
+                ->withInput($request->except('password'))
+                ->withErrors($respuesta['errors']);
         }
 
         return back()
             ->withInput($request->except('password'))
             ->withErrors([
-                'general' => $respuesta['message']
-                    ?? 'No fue posible iniciar sesión.',
+                'general' => $respuesta['message'] ?? 'No fue posible iniciar sesión.',
             ]);
     }
 
@@ -280,6 +230,7 @@ class AuthController extends Controller
             'nombre',
             'apellido',
             'correo',
+            'rol',
         ];
 
         foreach ($camposRequeridos as $campo) {
@@ -291,6 +242,7 @@ class AuthController extends Controller
         return is_numeric($usuario['id'])
             && is_string($usuario['nombre'])
             && is_string($usuario['apellido'])
-            && is_string($usuario['correo']);
+            && is_string($usuario['correo'])
+            && is_string($usuario['rol']);
     }
 }

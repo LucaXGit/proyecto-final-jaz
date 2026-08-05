@@ -26,12 +26,15 @@ services:
       retries: 20
       start_period: 20s
 
-  backend:
+    networks:
+      - veon-network
+
+  payara-container:
     build:
       context: ./ServidorTiendaPlayeras
       dockerfile: Dockerfile
 
-    container_name: tienda_backend
+    container_name: payara-container
     restart: unless-stopped
 
     environment:
@@ -49,6 +52,9 @@ services:
       db:
         condition: service_healthy
 
+    networks:
+      - veon-network
+
   frontend:
     build:
       context: ./ClienteTiendaPlayeras
@@ -61,7 +67,8 @@ services:
       APP_ENV: local
       APP_DEBUG: "true"
       APP_URL: http://localhost:8000
-      PRODUCTOS_API_URL: http://backend:8080/ServidorTiendaPlayeras/ProductoServlet
+      PRODUCTOS_API_URL: http://payara-container:8080/ServidorTiendaPlayeras/ProductoServlet
+      USUARIOS_API_URL: http://payara-container:8080/ServidorTiendaPlayeras/api/auth
       SESSION_DRIVER: file
       CACHE_STORE: file
       QUEUE_CONNECTION: sync
@@ -70,8 +77,16 @@ services:
       - "8000:80"
 
     depends_on:
-      backend:
+      payara-container:
         condition: service_started
+
+    networks:
+      - veon-network
+
+networks:
+  veon-network:
+    name: veon-network
+    driver: bridge
 
 volumes:
   mysql_data:

@@ -45,10 +45,29 @@ return [
     'usuarios' => [
         'url' => env(
             'USUARIOS_API_URL',
-            'http://backend:8080/ServidorTiendaPlayeras/UsuarioServlet'
+            'http://payara-container:8080/ServidorTiendaPlayeras/api/auth'
         ),
     ],
 
-    
+    'users' => [
+        'url' => env(
+            'USERS_API_URL',
+            'http://payara-container:8080/ServidorTiendaPlayeras/api/users'
+        ),
+    ],
+
+    'carrito' => [
+        'url' => env(
+            'CARRITO_API_URL',
+            'http://payara-container:8080/ServidorTiendaPlayeras/api/carrito'
+        ),
+    ],
+
+    'ordenes' => [
+        'url' => env(
+            'ORDENES_API_URL',
+            'http://payara-container:8080/ServidorTiendaPlayeras/api/ordenes'
+        ),
+    ],
 
 ];

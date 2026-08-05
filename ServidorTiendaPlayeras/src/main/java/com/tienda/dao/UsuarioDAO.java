@@ -54,7 +54,8 @@ public class UsuarioDAO {
                 nombre,
                 apellido,
                 correo,
-                password_hash
+                password_hash,
+                rol
             FROM usuarios
             WHERE LOWER(correo) = LOWER(?)
             LIMIT 1
@@ -76,6 +77,51 @@ public class UsuarioDAO {
                 usuario.setApellido(resultado.getString("apellido"));
                 usuario.setCorreo(resultado.getString("correo"));
                 usuario.setPasswordHash(resultado.getString("password_hash"));
+                usuario.setRol(resultado.getString("rol"));
+
+                return usuario;
+            }
+        }
+    }
+
+    /**
+     * Busca un usuario por su identificador primario.
+     *
+     * @param id identificador único del usuario
+     * @return usuario encontrado o null si no existe
+     * @throws SQLException si ocurre un error al consultar MySQL
+     */
+    public Usuario buscarPorId(long id) throws SQLException {
+        String sql = """
+            SELECT
+                id,
+                nombre,
+                apellido,
+                correo,
+                password_hash,
+                rol
+            FROM usuarios
+            WHERE id = ?
+            LIMIT 1
+            """;
+
+        try (Connection conexion = obtenerConexion();
+             PreparedStatement statement = conexion.prepareStatement(sql)) {
+
+            statement.setLong(1, id);
+
+            try (ResultSet resultado = statement.executeQuery()) {
+                if (!resultado.next()) {
+                    return null;
+                }
+
+                Usuario usuario = new Usuario();
+                usuario.setId(resultado.getLong("id"));
+                usuario.setNombre(resultado.getString("nombre"));
+                usuario.setApellido(resultado.getString("apellido"));
+                usuario.setCorreo(resultado.getString("correo"));
+                usuario.setPasswordHash(resultado.getString("password_hash"));
+                usuario.setRol(resultado.getString("rol"));
 
                 return usuario;
             }
@@ -96,9 +142,10 @@ public class UsuarioDAO {
                 nombre,
                 apellido,
                 correo,
-                password_hash
+                password_hash,
+                rol
             )
-            VALUES (?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?)
             """;
 
         try (Connection conexion = obtenerConexion();
@@ -111,6 +158,7 @@ public class UsuarioDAO {
             statement.setString(2, usuario.getApellido());
             statement.setString(3, usuario.getCorreo());
             statement.setString(4, usuario.getPasswordHash());
+            statement.setString(5, usuario.getRol() != null ? usuario.getRol() : "Usuario");
 
             int filasAfectadas = statement.executeUpdate();
 
@@ -130,6 +178,110 @@ public class UsuarioDAO {
                 usuario.setId(clavesGeneradas.getLong(1));
                 return usuario;
             }
+        }
+    }
+
+    /**
+     * Obtiene la lista completa de todos los usuarios registrados.
+     *
+     * @return lista de usuarios
+     * @throws SQLException si ocurre un error al consultar MySQL
+     */
+    public java.util.List<Usuario> listarTodos() throws SQLException {
+        String sql = """
+            SELECT
+                id,
+                nombre,
+                apellido,
+                correo,
+                rol
+            FROM usuarios
+            ORDER BY id ASC
+            """;
+
+        java.util.List<Usuario> usuarios = new java.util.ArrayList<>();
+
+        try (Connection conexion = obtenerConexion();
+             PreparedStatement statement = conexion.prepareStatement(sql);
+             ResultSet resultado = statement.executeQuery()) {
+
+            while (resultado.next()) {
+                Usuario usuario = new Usuario();
+                usuario.setId(resultado.getLong("id"));
+                usuario.setNombre(resultado.getString("nombre"));
+                usuario.setApellido(resultado.getString("apellido"));
+                usuario.setCorreo(resultado.getString("correo"));
+                usuario.setRol(resultado.getString("rol"));
+                usuarios.add(usuario);
+            }
+        }
+        return usuarios;
+    }
+
+    /**
+     * Obtiene la lista de usuarios filtrados por su rol.
+     *
+     * @param rol rol del usuario (Admin, Usuario, etc.)
+     * @return lista de usuarios
+     * @throws SQLException si ocurre un error al consultar MySQL
+     */
+    public java.util.List<Usuario> listarPorRol(String rol) throws SQLException {
+        String sql = """
+            SELECT
+                id,
+                nombre,
+                apellido,
+                correo,
+                rol
+            FROM usuarios
+            WHERE LOWER(rol) = LOWER(?)
+            ORDER BY id ASC
+            """;
+
+        java.util.List<Usuario> usuarios = new java.util.ArrayList<>();
+
+        try (Connection conexion = obtenerConexion();
+             PreparedStatement statement = conexion.prepareStatement(sql)) {
+
+            statement.setString(1, rol);
+
+            try (ResultSet resultado = statement.executeQuery()) {
+                while (resultado.next()) {
+                    Usuario usuario = new Usuario();
+                    usuario.setId(resultado.getLong("id"));
+                    usuario.setNombre(resultado.getString("nombre"));
+                    usuario.setApellido(resultado.getString("apellido"));
+                    usuario.setCorreo(resultado.getString("correo"));
+                    usuario.setRol(resultado.getString("rol"));
+                    usuarios.add(usuario);
+                }
+            }
+        }
+        return usuarios;
+    }
+
+    /**
+     * Actualiza el rol de un usuario.
+     *
+     * @param id identificador del usuario
+     * @param rol nuevo rol a asignar (ej. 'Admin', 'Usuario')
+     * @return true si se actualizó correctamente, false si el usuario no existe
+     * @throws SQLException si ocurre un error en la base de datos
+     */
+    public boolean actualizarRol(long id, String rol) throws SQLException {
+        String sql = """
+            UPDATE usuarios
+            SET rol = ?
+            WHERE id = ?
+            """;
+
+        try (Connection conexion = obtenerConexion();
+             PreparedStatement statement = conexion.prepareStatement(sql)) {
+
+            statement.setString(1, rol);
+            statement.setLong(2, id);
+
+            return statement.executeUpdate() > 0;
         }
     }
 

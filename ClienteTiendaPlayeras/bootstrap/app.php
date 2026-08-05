@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\VerificarRolAdmin;
 use App\Http\Middleware\VerificarSesionUsuario;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -14,6 +15,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
             'usuario.auth' => VerificarSesionUsuario::class,
+            'admin.auth' => VerificarRolAdmin::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
