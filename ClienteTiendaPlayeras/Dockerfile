@@ -2,16 +2,16 @@ FROM php:8.2-apache
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-        git \
-        unzip \
-        libcurl4-openssl-dev \
-        libonig-dev \
-        libzip-dev \
+    git \
+    unzip \
+    libcurl4-openssl-dev \
+    libonig-dev \
+    libzip-dev \
     && docker-php-ext-install \
-        curl \
-        mbstring \
-        pdo_mysql \
-        zip \
+    curl \
+    mbstring \
+    pdo_mysql \
+    zip \
     && a2enmod rewrite \
     && rm -rf /var/lib/apt/lists/*
 
@@ -39,4 +39,10 @@ RUN composer dump-autoload --optimize \
 
 EXPOSE 80
 
+# Cambia la ruta raíz de Apache a la carpeta public de Laravel
+RUN sed -i -e 's!/var/www/html!/var/www/html/public!g' /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf /etc/apache2/sites-available/*.conf
+
+EXPOSE 80
+
 CMD ["apache2-foreground"]
+
