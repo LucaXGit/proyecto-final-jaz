@@ -1,0 +1,19 @@
+# Java / Maven
+ServidorTiendaPlayeras/target/
+*.class
+
+# Laravel
+ClienteTiendaPlayeras/vendor/
+ClienteTiendaPlayeras/node_modules/
+ClienteTiendaPlayeras/.env
+ClienteTiendaPlayeras/storage/logs/*
+ClienteTiendaPlayeras/bootstrap/cache/*.php
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# Sistema
+.DS_Store
+Thumbs.db

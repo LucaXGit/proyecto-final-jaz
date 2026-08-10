@@ -39,10 +39,4 @@ RUN composer dump-autoload --optimize \
 
 EXPOSE 80
 
-# Cambia la ruta raíz de Apache a la carpeta public de Laravel
-RUN sed -i -e 's!/var/www/html!/var/www/html/public!g' /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf /etc/apache2/sites-available/*.conf
-
-EXPOSE 80
-
 CMD ["apache2-foreground"]
-

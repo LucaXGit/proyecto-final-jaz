@@ -162,7 +162,12 @@
                                     class="mt-2"
                                 >
                                     @csrf
-                                    <input type="hidden" name="producto_id" value="{{ $playera['id'] }}">
+
+                                    <input
+                                        type="hidden"
+                                        name="producto_id"
+                                        value="{{ $playera['id'] }}"
+                                    >
 
                                     <div class="input-group mb-2">
                                         <span class="input-group-text bg-white text-muted">

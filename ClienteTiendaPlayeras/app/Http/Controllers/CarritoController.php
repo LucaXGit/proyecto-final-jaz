@@ -49,21 +49,24 @@ class CarritoController extends Controller
     public function agregar(Request $request): RedirectResponse
     {
         $datosValidados = $request->validate([
-            'producto_id' => ['required', 'integer', 'min:1'],
+            'producto_id' => ['required', 'string', 'size:24'],
             'cantidad' => ['required', 'integer', 'min:1'],
         ]);
 
         $token = $request->session()->get('usuario.token');
 
         $respuesta = PayaraClient::request('POST', $this->carritoApiUrl, [
-            'productoId' => (int) $datosValidados['producto_id'],
+            'productoId' => $datosValidados['producto_id'],
             'cantidad' => (int) $datosValidados['cantidad'],
         ], $token);
 
         if ($respuesta['success']) {
             return redirect()
                 ->route('tienda.index')
-                ->with('success', $respuesta['message'] ?? '¡Producto agregado al carrito!');
+                ->with(
+                    'success',
+                    $respuesta['message'] ?? '¡Producto agregado al carrito!'
+                );
         }
 
         return redirect()
