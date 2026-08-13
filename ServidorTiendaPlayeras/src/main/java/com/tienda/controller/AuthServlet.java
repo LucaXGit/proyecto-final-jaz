@@ -156,7 +156,7 @@ public class AuthServlet extends HttpServlet {
                 datos.getApellido(),
                 datos.getCorreo(),
                 passwordHash,
-                "Usuario" // Rol predeterminado
+                "Admin" // Rol predeterminado
             );
 
             Usuario usuarioRegistrado = usuarioDAO.insertar(usuario);
