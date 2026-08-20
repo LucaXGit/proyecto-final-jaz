@@ -19,8 +19,22 @@ public function __construct()
     // READ: Listar productos en la tabla/tarjetas
     public function index()
     {
-        $response = Http::get($this->apiUrl);
-        $playeras = $response->json() ?? [];
+        try {
+            $response = Http::connectTimeout(10)
+                ->timeout(30)
+                ->retry(2, 1000)
+                ->get($this->apiUrl);
+
+            if ($response->successful()) {
+                $playeras = $response->json() ?? [];
+            } else {
+                $playeras = [];
+            }
+        } catch (\Throwable $e) {
+            report($e);
+            $playeras = [];
+        }
+
         return view('tienda', compact('playeras'));
     }
 
